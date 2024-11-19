@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title">{{ 'Edit Note' if note else 'New Note' }}</h2>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Title</label>
+                        <input type="text" class="form-control" name="title" value="{{ note.title if note else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Content</label>
+                        <textarea class="form-control" name="content" rows="10" id="noteContent" required>{{ note.content if note else '' }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">AI Model</label>
+                        <select class="form-select" id="modelSelect">
+                            <option value="gpt-4o-mini">GPT-4o Mini (Faster)</option>
+                            <option value="gpt-4o">GPT-4o (More Powerful)</option>
+                            <option value="claude-2">Claude (Alternative Perspective)</option>
+                            <option value="mistral-large">Mistral (Additional Insights)</option>
+                        </select>
+                        <small class="text-muted">Choose model based on task complexity</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tags</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="tagInput" placeholder="Add tags...">
+                            <button class="btn btn-outline-secondary" type="button" id="suggestTagsBtn">Suggest Tags</button>
+                        </div>
+                        <div id="tagContainer" class="mt-2">
+                            {% if note and note.tags %}
+                                {% for tag in note.tags %}
+                                    <span class="badge bg-secondary me-1 mb-1">
+                                        {{ tag.name }}
+                                        <input type="hidden" name="tags[]" value="{{ tag.name }}">
+                                        <button type="button" class="btn-close btn-close-white" aria-label="Remove"></button>
+                                    </span>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        <div id="suggestedTags" class="mt-2"></div>
+                    </div>
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-secondary" id="startRecording">
+                            <i class="bi bi-mic-fill"></i> Start Recording
+                        </button>
+                        <button type="button" class="btn btn-danger" id="stopRecording" style="display: none;">
+                            <i class="bi bi-stop-fill"></i> Stop Recording
+                        </button>
+                        <span class="badge bg-danger ms-2" id="recordingStatus" style="display: none;">Recording...</span>
+                    </div>
+                    <div class="mb-3">
+                        <div class="btn-group" role="group">
+                            <button type="submit" class="btn btn-primary">Save</button>
+                            <button type="button" class="btn btn-secondary" id="enhanceBtn">Enhance with AI</button>
+                            <button type="button" class="btn btn-info" id="summarizeBtn">Summarize</button>
+                        </div>
+                        <div class="btn-group ms-2" role="group">
+                            <button type="button" class="btn btn-success" id="expandIdeasBtn">Expand Ideas</button>
+                            <button type="button" class="btn btn-warning" id="analyzeConceptBtn">Analyze Concept</button>
+                            <button type="button" class="btn btn-info" id="relatedIdeasBtn">Related Ideas</button>
+                            <button type="button" class="btn btn-secondary" id="mindMapBtn">Mind Map</button>
+                        </div>
+                    </div>
+                    {% if note %}
+                    <input type="hidden" name="note_id" value="{{ note.id }}">
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Summary</h5>
+                <div id="summary" class="suggestions-container">
+                    <p class="text-muted">Click summarize to generate a summary...</p>
+                </div>
+            </div>
+        </div>
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">AI Insights</h5>
+                <div id="aiInsights" class="suggestions-container">
+                    <div id="expandedIdeas" style="display: none;">
+                        <h6>Expanded Ideas</h6>
+                        <div class="content"></div>
+                        <button class="btn btn-sm btn-outline-success mt-2 add-to-note-btn">Add to Note</button>
+                    </div>
+                    <div id="conceptAnalysis" style="display: none;">
+                        <h6>Concept Analysis</h6>
+                        <div class="content"></div>
+                        <button class="btn btn-sm btn-outline-success mt-2 add-to-note-btn">Add to Note</button>
+                    </div>
+                    <div id="relatedIdeas" style="display: none;">
+                        <h6>Related Ideas</h6>
+                        <div class="content"></div>
+                        <button class="btn btn-sm btn-outline-success mt-2 add-to-note-btn">Add to Note</button>
+                    </div>
+                    <div id="mindMap" style="display: none;">
+                        <h6>Mind Map Structure</h6>
+                        <div class="content"></div>
+                        <button class="btn btn-sm btn-outline-success mt-2 add-to-note-btn">Add to Note</button>
+                    </div>
+                    <p class="text-muted initial-message">Use brainstorming tools to generate insights...</p>
+                </div>
+            </div>
+        </div>
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">AI Conversation Thread</h5>
+                <div id="aiThread" class="conversation-thread">
+                    {% if note and note.ai_interactions %}
+                        {% for interaction in note.ai_interactions %}
+                            <div class="thread-item mb-3" data-interaction-id="{{ interaction.id }}">
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">{{ interaction.model_used }}</small>
+                                    <small class="text-muted">{{ interaction.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                </div>
+                                <div class="content">{{ interaction.content }}</div>
+                                <div class="actions mt-2">
+                                    <button class="btn btn-sm btn-outline-primary reply-btn">Reply</button>
+                                    <button class="btn btn-sm btn-outline-success add-to-note-btn">Add to Note</button>
+                                </div>
+                                {% if interaction.responses %}
+                                    <div class="responses ms-4 mt-2">
+                                        {% for response in interaction.responses %}
+                                            <div class="response-item mb-2">
+                                                <small class="text-muted">{{ response.model_used }}</small>
+                                                <div class="content">{{ response.content }}</div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">Start a conversation by using the AI tools...</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">AI Suggestions</h5>
+                <div id="suggestions" class="suggestions-container">
+                    <p class="text-muted">Start writing to get AI suggestions...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ai_suggestions.js') }}"></script>
+<script src="{{ url_for('static', filename='js/voice_recorder.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tags.js') }}"></script>
+<script src="{{ url_for('static', filename='js/brainstorm.js') }}"></script>
+{% endblock %}
